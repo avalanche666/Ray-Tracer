@@ -4,12 +4,21 @@ use std::io::Write;
 use std::ops::Add;
 use std::path::PathBuf;
 use crate::ray::Ray;
-use crate::vector::{Custom_Color, Custom_Point, Custom_Vector, unit_vector};
+use crate::vector::{Custom_Color, Custom_Point, Custom_Vector, unit_vector, dot, cross};
 
 mod vector;
 mod ray;
 
-fn ray_color (r: &Ray) -> Custom_Color {
+fn hit_sphere (r :&Ray, sphere :&Custom_Vector, radius :f64) -> f64 {
+    let po :Custom_Point = r.origin() - *sphere; // O-P
+    let a :f64 = dot(r.direction(), r.direction()); // DD
+    let b :f64 = 2.0 * dot(po, r.direction()); // 2DO - 2PD = 2(DO - PD) = 2D(O-P)
+    let c :f64 = dot(po, po) - radius * radius; // -2OP + OO + PP - r*r = (O-P)^2 - r^2
+    let discriminant :f64 = b*b - 4.0*a*c;
+    discriminant
+}
+
+fn ray_color (r :&Ray) -> Custom_Color {
     let unit_direction :Custom_Vector = unit_vector(&r.direction());
     let t = 0.5 * (unit_direction.y() + 1.0);
     let sunset :Custom_Color = Custom_Color::new(247.0/255.9, 147.0/255.9, 27.0/255.9);
@@ -41,11 +50,23 @@ fn present (width :u32, ratio :f64) -> Vec<u8> {
             let u :f64 = j as f64 / (image_width - 1) as f64;
             let v :f64 = i as f64 / (image_height - 1) as f64;
             let r :Ray = Ray::new(&origin, &(corner + u*horizontal + v*vertical - origin));
-            let c :Custom_Color = ray_color(&r);
+
+            let mut c :Custom_Vector = Custom_Color::new(0.0, 0.0, 0.0);
+            let sphere :Custom_Vector = Custom_Point::new(0.0, 0.0, -2.0);
+            let t :f64 = hit_sphere(&r, &sphere, 1.0);
+
+            if t >= 0.0 {
+                c = Custom_Color::new(1.0, 0.0, 0.0);
+            } else {
+                c = ray_color(&r);
+            }
 
             output.push((c[0] * 255.999) as u8);
+            // println!("c[0] : {}", c[0]);
             output.push((c[1] * 255.999) as u8);
+            // println!("c[1] : {}", c[1]);
             output.push((c[2] * 255.999) as u8);
+            // println!("c[2] : {}", c[2]);
         }
     }
 
