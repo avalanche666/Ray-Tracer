@@ -3,31 +3,32 @@ use std::fs::File;
 use std::io::Write;
 use std::ops::Add;
 use std::path::PathBuf;
+use crate::hittable::Hit_Record;
 use crate::ray::Ray;
 use crate::vector::{Custom_Color, Custom_Point, Custom_Vector, unit_vector, dot, cross};
 
 mod vector;
 mod ray;
+mod utility;
+mod hittable;
+mod hittable_list;
+mod sphere;
 
-fn hit_sphere (r :&Ray, sphere :&Custom_Vector, radius :f64) -> f64 {
-    let po :Custom_Point = r.origin() - *sphere; // O-P
-    let a :f64 = dot(r.direction(), r.direction()); // DD
-    let b :f64 = 2.0 * dot(po, r.direction()); // 2DO - 2PD = 2(DO - PD) = 2D(O-P)
-    let c :f64 = dot(po, po) - radius * radius; // -2OP + OO + PP - r*r = (O-P)^2 - r^2
-    let discriminant :f64 = b*b - 4.0*a*c;
-    discriminant
-}
+fn ray_color (r :&Ray, world :&Hittable_List) -> Custom_Color {
+    let mut rec = Hit_Record::default();
+    if let true = world.Hit(r, 0.0, utility::INFINITY, &mut rec) {
+        return 0.5 * (rec.normal + Custom_Color::new(1.0, 1.0, 1.0));
+    }
 
-fn ray_color (r :&Ray) -> Custom_Color {
     let unit_direction :Custom_Vector = unit_vector(&r.direction());
-    let t = 0.5 * (unit_direction.y() + 1.0);
+    let t :f64 = 0.5 * (unit_direction.y() + 1.0);
     let sunset :Custom_Color = Custom_Color::new(247.0/255.9, 147.0/255.9, 27.0/255.9);
     let sky :Custom_Color = Custom_Color::new(0.5, 0.7, 1.0);
 
     (1.0 - t) * Custom_Color::new(1.0, 1.0, 1.0) + t * sky
 }
 
-fn present (width :u32, ratio :f64) -> Vec<u8> {
+unsafe fn present (width :u32, ratio :f64) -> Vec<u8> {
     let image_width :u32 = width;
     let image_height :u32 = (width as f64 / ratio) as u32;
     let aspect_ratio :f64 = ratio;
@@ -56,7 +57,7 @@ fn present (width :u32, ratio :f64) -> Vec<u8> {
             let t :f64 = hit_sphere(&r, &sphere, 1.0);
 
             if t >= 0.0 {
-                c = Custom_Color::new(1.0, 0.0, 0.0);
+                c = sphere_color(&r);
             } else {
                 c = ray_color(&r);
             }
@@ -82,7 +83,7 @@ fn main() {
     let ratio :f64 = 16.0 / 9.0;
     let height :u32 = (width as f64 / ratio) as u32;
 
-    let output :Vec<u8> = present(width, ratio);
+    let output :Vec<u8> = unsafe { present(width, ratio) };
     let header :String = ppm_header(width, height);
 
     let mut fp :File = File::create(PathBuf::from("./output.ppm")).unwrap();
